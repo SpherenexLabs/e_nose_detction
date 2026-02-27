@@ -2,7 +2,6 @@ import { initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
 import { getAuth } from "firebase/auth";
 
-// Read values from Vite env
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -11,28 +10,23 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID, // optional
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-// Validate env (fail early)
-const required = ["apiKey", "authDomain", "databaseURL", "projectId", "appId"];
-for (const k of required) {
-  if (!firebaseConfig[k]) {
-    console.error(`Missing Firebase config: ${k}. Check your .env and restart Vite.`);
+// Hard fail in production if missing (prevents blank page confusion)
+function assertEnv(key, value) {
+  if (!value) {
+    throw new Error(
+      `Missing ${key}. Add it to .env (local) and Vercel Environment Variables.`
+    );
   }
 }
 
-const validDbDomain =
-  firebaseConfig.databaseURL?.includes("firebaseio.com") ||
-  firebaseConfig.databaseURL?.includes("firebasedatabase.app");
-
-if (firebaseConfig.databaseURL && !validDbDomain) {
-  console.error("Firebase databaseURL looks wrong:", firebaseConfig.databaseURL);
-}
-
-// Debug (optional)
-console.log("Firebase Project:", firebaseConfig.projectId);
-console.log("Firebase DB URL:", firebaseConfig.databaseURL);
+assertEnv("VITE_FIREBASE_API_KEY", firebaseConfig.apiKey);
+assertEnv("VITE_FIREBASE_AUTH_DOMAIN", firebaseConfig.authDomain);
+assertEnv("VITE_FIREBASE_DATABASE_URL", firebaseConfig.databaseURL);
+assertEnv("VITE_FIREBASE_PROJECT_ID", firebaseConfig.projectId);
+assertEnv("VITE_FIREBASE_APP_ID", firebaseConfig.appId);
 
 export const app = initializeApp(firebaseConfig);
 export const db = getDatabase(app);

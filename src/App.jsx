@@ -299,6 +299,7 @@ export default function App() {
       status: "Booked",
       prescriptionText: "",
       prescribedAt: null,
+      prediction: prediction,
       createdAt: Date.now(),
     });
   }
@@ -312,6 +313,16 @@ export default function App() {
       prescribedAt: Date.now(),
       doctorUid: user.uid,
       doctorEmail: user.email || "",
+    });
+  }
+
+  async function handleUpdateAppointmentStatus({ appointmentId, status }) {
+    if (!user || profile?.role !== "doctor") return;
+
+    await update(ref(db, `appointments/${appointmentId}`), {
+      status: status || "Pending",
+      updatedAt: Date.now(),
+      doctorUid: user.uid,
     });
   }
 
@@ -587,6 +598,7 @@ export default function App() {
             doctorAppointments={doctorAppointments}
             onBookDoctor={handleBookDoctor}
             onSavePrescription={handleSavePrescription}
+            onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
           />
 
           <div className="panel">

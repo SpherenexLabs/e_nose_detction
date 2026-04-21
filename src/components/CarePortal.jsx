@@ -8,14 +8,34 @@ const DEMO_DOCTOR_BOOKINGS = [
     symptoms: "Frequent wheeze at night",
     status: "Booked",
     prescriptionText: "Use inhaler twice daily for 5 days.",
+    prediction: {
+      label: "Wheezing",
+      severity: 62,
+      confidence: 0.78,
+      risks: {
+        asthma: 55,
+        wheeze: 72,
+        tb: 25,
+      },
+    },
   },
   {
     id: "demo-appt-doc-2",
     userName: "Jane Smith",
     userEmail: "jane.demo@example.com",
     symptoms: "Persistent cough for 1 week",
-    status: "Prescription Added",
+    status: "Booked",
     prescriptionText: "Steam inhalation and chest X-ray follow-up.",
+    prediction: {
+      label: "Suspected TB",
+      severity: 68,
+      confidence: 0.72,
+      risks: {
+        asthma: 40,
+        wheeze: 45,
+        tb: 78,
+      },
+    },
   },
 ];
 
@@ -27,6 +47,16 @@ const DEMO_USER_BOOKINGS = [
     symptoms: "Shortness of breath",
     status: "Booked",
     prescriptionText: "Pending",
+    prediction: {
+      label: "Asthma",
+      severity: 55,
+      confidence: 0.71,
+      risks: {
+        asthma: 65,
+        wheeze: 42,
+        tb: 28,
+      },
+    },
   },
   {
     id: "demo-appt-user-2",
@@ -35,6 +65,16 @@ const DEMO_USER_BOOKINGS = [
     symptoms: "Dry cough",
     status: "Consulted",
     prescriptionText: "Hydration and breathing exercise for 7 days.",
+    prediction: {
+      label: "Normal",
+      severity: 18,
+      confidence: 0.85,
+      risks: {
+        asthma: 15,
+        wheeze: 20,
+        tb: 12,
+      },
+    },
   },
 ];
 
@@ -46,6 +86,7 @@ export default function CarePortal({
   doctorAppointments,
   onBookDoctor,
   onSavePrescription,
+  onUpdateAppointmentStatus,
 }) {
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
   const [symptoms, setSymptoms] = useState("");
@@ -88,6 +129,20 @@ export default function CarePortal({
     });
   }
 
+  async function handleAcceptPatient(appt) {
+    await onUpdateAppointmentStatus?.({
+      appointmentId: appt.id,
+      status: "Accepted",
+    });
+  }
+
+  async function handleRejectPatient(appt) {
+    await onUpdateAppointmentStatus?.({
+      appointmentId: appt.id,
+      status: "Rejected",
+    });
+  }
+
   function togglePrescription(apptId) {
     setOpenPrescriptions((prev) => ({
       ...prev,
@@ -114,22 +169,58 @@ export default function CarePortal({
           <div className="badge">Doctor Login</div>
         </div>
 
-        <div className="smallText">Review patient bookings and add prescriptions directly from this page.</div>
+        <div className="smallText">Review patient bookings, health conditions, and add prescriptions directly from this page.</div>
 
         <div className="appointmentList">
-          {doctorBookingsToShow.map((appt) => (
-              <div key={appt.id} className="appointmentCard">
+          {doctorBookingsToShow.map((appt) => {
+            const isRejected = appt.status === "Rejected";
+            const isAccepted = appt.status === "Accepted";
+            return (
+              <div key={appt.id} className="appointmentCard" style={isRejected ? { opacity: 0.6 } : {}}>
                 <div className="appointmentHead">
                   <div>
                     <div className="appointmentTitle">{appt.userName || "Patient"}</div>
                     <div className="smallText">{appt.userEmail || "-"}</div>
                   </div>
-                  <div className="statusPill yellow">{appt.status || "Booked"}</div>
+                  <div className={`statusPill ${isRejected ? "red" : isAccepted ? "green" : "yellow"}`}>
+                    {appt.status || "Booked"}
+                  </div>
                 </div>
 
                 <div className="smallText" style={{ marginTop: 8 }}>
-                  Symptoms: {appt.symptoms || "Not provided"}
+                  <strong>Symptoms:</strong> {appt.symptoms || "Not provided"}
                 </div>
+
+                {/* Disease/Health Status */}
+                {appt.prediction && (
+                  <div style={{ marginTop: 10, padding: "8px", backgroundColor: "#f5f5f5", borderRadius: "4px" }}>
+                    <div className="smallText" style={{ marginBottom: 6 }}>
+                      <strong>Health Status:</strong>
+                    </div>
+                    <div className="smallText">
+                      • <strong>Condition:</strong> {appt.prediction.label || "Normal"}
+                    </div>
+                    <div className="smallText">
+                      • <strong>Severity:</strong> {Math.round(appt.prediction.severity || 0)}/100
+                    </div>
+                    <div className="smallText">
+                      • <strong>Confidence:</strong> {Math.round((appt.prediction.confidence || 0) * 100)}%
+                    </div>
+
+                    {/* Disease Risks */}
+                    <div style={{ marginTop: 6 }}>
+                      <div className="smallText">
+                        • <strong>Asthma Risk:</strong> {Math.round(appt.prediction.risks?.asthma || 0)}/100
+                      </div>
+                      <div className="smallText">
+                        • <strong>Wheeze Risk:</strong> {Math.round(appt.prediction.risks?.wheeze || 0)}/100
+                      </div>
+                      <div className="smallText">
+                        • <strong>TB Risk:</strong> {Math.round(appt.prediction.risks?.tb || 0)}/100
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <textarea
                   className="input prescriptionArea"
@@ -141,15 +232,27 @@ export default function CarePortal({
                       [appt.id]: e.target.value,
                     }))
                   }
+                  disabled={isRejected}
                 />
 
-                <div className="appointmentActions">
-                  <button className="btnSmall" onClick={() => submitPrescription(appt)}>
+                <div className="appointmentActions" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {!isRejected && !isAccepted && (
+                    <>
+                      <button className="btnSmall" style={{ backgroundColor: "#4CAF50", color: "white" }} onClick={() => handleAcceptPatient(appt)}>
+                        Accept Patient
+                      </button>
+                      <button className="btnSmall" style={{ backgroundColor: "#f44336", color: "white" }} onClick={() => handleRejectPatient(appt)}>
+                        Reject Patient
+                      </button>
+                    </>
+                  )}
+                  <button className="btnSmall" onClick={() => submitPrescription(appt)} disabled={isRejected}>
                     Save Prescription
                   </button>
                 </div>
               </div>
-            ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -211,14 +314,58 @@ export default function CarePortal({
       </div>
 
       <div className="appointmentList">
-        {userBookingsToShow.map((appt) => (
-            <div key={appt.id} className="appointmentCard">
+        {userBookingsToShow.map((appt) => {
+          const isRejected = appt.status === "Rejected";
+          const hasHealthData = appt.prediction || appt.healthData;
+          const healthLabel = appt.prediction?.label || appt.healthData?.condition || "No Data";
+          const healthSeverity = appt.prediction?.severity || appt.healthData?.severity || 0;
+          const healthConfidence = appt.prediction?.confidence || appt.healthData?.confidence || 0;
+          const asthmaRisk = appt.prediction?.risks?.asthma || appt.healthData?.asthmaRisk || 0;
+          const wheezeRisk = appt.prediction?.risks?.wheeze || appt.healthData?.wheezeRisk || 0;
+          const tbRisk = appt.prediction?.risks?.tb || appt.healthData?.tbRisk || 0;
+          
+          return (
+            <div key={appt.id} className="appointmentCard" style={isRejected ? { opacity: 0.6, borderColor: "#f44336" } : {}}>
               <div className="appointmentHead">
                 <div className="appointmentTitle">{appt.doctorName || "Doctor"}</div>
-                <div className="statusPill green">{appt.status || "Booked"}</div>
+                <div className={`statusPill ${isRejected ? "red" : appt.status === "Accepted" ? "green" : "yellow"}`}>
+                  {appt.status || "Booked"}
+                </div>
               </div>
               <div className="smallText">Specialization: {appt.specialization || "-"}</div>
               <div className="smallText">Symptoms: {appt.symptoms || "-"}</div>
+
+              {/* Your Health Status - Always Show */}
+              <div style={{ marginTop: 10, padding: "8px", backgroundColor: "#f5f5f5", borderRadius: "4px" }}>
+                <div className="smallText" style={{ marginBottom: 6 }}>
+                  <strong>Your Health Status:</strong>
+                </div>
+                <div className="smallText">
+                  • <strong>Condition:</strong> {healthLabel}
+                </div>
+                <div className="smallText">
+                  • <strong>Severity:</strong> {Math.round(healthSeverity)}/100
+                </div>
+                <div className="smallText">
+                  • <strong>Confidence:</strong> {Math.round(healthConfidence * 100)}%
+                </div>
+
+                {/* Disease Risks */}
+                {hasHealthData && (
+                  <div style={{ marginTop: 6 }}>
+                    <div className="smallText">
+                      • <strong>Asthma Risk:</strong> {Math.round(asthmaRisk)}/100
+                    </div>
+                    <div className="smallText">
+                      • <strong>Wheeze Risk:</strong> {Math.round(wheezeRisk)}/100
+                    </div>
+                    <div className="smallText">
+                      • <strong>TB Risk:</strong> {Math.round(tbRisk)}/100
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="appointmentActions">
                 <button className="btnSmall" type="button" onClick={() => togglePrescription(appt.id)}>
                   {openPrescriptions[appt.id] ? "Hide Prescription" : "Open Prescription"}
@@ -233,7 +380,8 @@ export default function CarePortal({
                 />
               ) : null}
             </div>
-          ))}
+          );
+        })}
       </div>
     </div>
   );
